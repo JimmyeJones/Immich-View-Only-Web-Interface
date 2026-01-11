@@ -15,6 +15,7 @@ const Lightbox = {
         image: null,
         video: null,
         loading: null,
+        download: null,
         infoToggle: null,
         sidebar: null,
         sidebarClose: null,
@@ -39,6 +40,7 @@ const Lightbox = {
         this.elements.image = document.getElementById('lightbox-image');
         this.elements.video = document.getElementById('lightbox-video');
         this.elements.loading = document.getElementById('lightbox-loading');
+        this.elements.download = document.getElementById('lightbox-download');
         this.elements.infoToggle = document.getElementById('lightbox-info-toggle');
         this.elements.sidebar = document.getElementById('lightbox-sidebar');
         this.elements.sidebarClose = document.getElementById('sidebar-close');
@@ -51,6 +53,12 @@ const Lightbox = {
         this.elements.next.addEventListener('click', () => this.next());
         this.elements.infoToggle.addEventListener('click', () => this.toggleSidebar());
         this.elements.sidebarClose?.addEventListener('click', () => this.toggleSidebar());
+        this.elements.download?.addEventListener('click', (e) => {
+            // If href is missing, prevent navigation
+            if (!this.elements.download.href) {
+                e.preventDefault();
+            }
+        });
 
         // Keyboard navigation
         document.addEventListener('keydown', (e) => this.handleKeyboard(e));
@@ -91,6 +99,9 @@ const Lightbox = {
 
         // Display media
         this.displayMedia(this.currentAsset);
+
+        // Update download link
+        this.updateDownloadLink(this.currentAsset);
 
         // Update navigation state
         this.updateNavigation();
@@ -167,6 +178,8 @@ const Lightbox = {
 
         if (isVideo) {
             // Display video
+            this.elements.video.preload = 'metadata';
+            this.elements.video.poster = API.getThumbnailUrl(asset.id, 'preview');
             this.elements.video.src = API.getVideoPlaybackUrl(asset.id);
             this.elements.video.hidden = false;
             this.elements.video.onloadeddata = () => this.hideLoading();
@@ -177,16 +190,29 @@ const Lightbox = {
         } else {
             // Display image
             const img = this.elements.image;
-            img.src = API.getOriginalUrl(asset.id);
             img.alt = asset.originalFileName || 'Photo';
             img.hidden = false;
-            
+
+            // Load a fast preview first, then swap to full-res once ready
+            const previewUrl = API.getThumbnailUrl(asset.id, 'preview');
+            const originalUrl = API.getOriginalUrl(asset.id);
+
             img.onload = () => this.hideLoading();
             img.onerror = () => {
                 this.hideLoading();
-                // Fallback to preview
-                img.src = API.getThumbnailUrl(asset.id, 'preview');
             };
+
+            img.src = previewUrl;
+
+            // Preload full resolution in the background
+            const hiRes = new Image();
+            hiRes.onload = () => {
+                img.src = originalUrl;
+            };
+            hiRes.onerror = () => {
+                // Keep preview if original fails
+            };
+            hiRes.src = originalUrl;
         }
     },
 
@@ -296,10 +322,32 @@ const Lightbox = {
      * Format shutter speed
      */
     formatShutterSpeed(seconds) {
-        if (seconds >= 1) {
-            return `${seconds}s`;
+        // Handle string fractions like "1/250" or numeric seconds
+        let value = seconds;
+
+        if (typeof seconds === 'string') {
+            if (seconds.includes('/')) {
+                const [num, den] = seconds.split('/').map(parseFloat);
+                if (Number.isFinite(num) && Number.isFinite(den) && den !== 0) {
+                    value = num / den;
+                }
+            } else {
+                const parsed = parseFloat(seconds);
+                if (Number.isFinite(parsed)) {
+                    value = parsed;
+                }
+            }
         }
-        const fraction = Math.round(1 / seconds);
+
+        if (!Number.isFinite(value) || value <= 0) {
+            return '-';
+        }
+
+        if (value >= 1) {
+            const rounded = value >= 10 ? value.toFixed(0) : value.toFixed(1);
+            return `${rounded}s`;
+        }
+        const fraction = Math.round(1 / value);
         return `1/${fraction}s`;
     },
 
@@ -317,6 +365,16 @@ const Lightbox = {
         }
         
         return `${size.toFixed(1)} ${units[unitIndex]}`;
+    },
+
+    /**
+     * Update download link for the current asset
+     */
+    updateDownloadLink(asset) {
+        if (!this.elements.download) return;
+        const url = API.getOriginalUrl(asset.id);
+        this.elements.download.href = url;
+        this.elements.download.download = asset.originalFileName || 'asset';
     },
 
     /**

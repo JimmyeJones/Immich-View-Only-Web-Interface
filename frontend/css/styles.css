@@ -805,6 +805,26 @@ input, select {
     background-color: rgba(0, 0, 0, 0.8);
 }
 
+.lightbox-download {
+    position: absolute;
+    top: var(--space-lg);
+    right: calc(var(--space-lg) + 56px);
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    border-radius: 50%;
+    z-index: var(--z-lightbox-content);
+    transition: all var(--transition-fast);
+}
+
+.lightbox-download:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
 .lightbox-info-toggle {
     position: absolute;
     bottom: var(--space-lg);

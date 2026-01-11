@@ -103,7 +103,8 @@ const Gallery = {
 
             State.set({
                 assets: response.items || [],
-                total: response.total || response.items?.length || 0,
+                // Preserve a 0 total if API returns it; fall back to items length when missing
+                total: response.total ?? (response.items ? response.items.length : 0),
                 page: response.page || 1,
                 hasMore: response.hasMore !== false,
                 isLoading: false
@@ -285,16 +286,28 @@ const Gallery = {
      * Update result count display
      */
     updateResultCount(state) {
-        const count = state.total || state.assets.length;
+        const total = state.total;
         const showing = state.assets.length;
-        
-        if (count === 0) {
+
+        if (showing === 0) {
             this.elements.resultCount.textContent = 'No results';
-        } else if (showing < count) {
-            this.elements.resultCount.textContent = `Showing ${showing} of ${count} items`;
-        } else {
-            this.elements.resultCount.textContent = `${count} items`;
+            return;
         }
+
+        // If API gave a real total and we haven't loaded all yet
+        if (Number.isFinite(total) && total > 0 && showing < total) {
+            this.elements.resultCount.textContent = `Showing ${showing} of ${total} items`;
+            return;
+        }
+
+        // If we don't know the total but more pages exist, indicate partial count
+        if (state.hasMore) {
+            this.elements.resultCount.textContent = `Showing ${showing}+ items`;
+            return;
+        }
+
+        // Otherwise, we have the full set loaded
+        this.elements.resultCount.textContent = `${showing} items`;
     },
 
     /**

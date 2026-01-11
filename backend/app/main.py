@@ -192,7 +192,10 @@ async def get_people(
         cache_manager.set(cache_key, result, ttl=300)  # Cache for 5 minutes
         return result
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail="Failed to get people")
+        # Return an empty list instead of failing the whole page
+        return {"people": [], "total": 0, "error": f"Failed to get people: {e.response.status_code}"}
+    except Exception as e:
+        return {"people": [], "total": 0, "error": f"Failed to get people: {str(e)}"}
 
 
 @app.get("/api/people/{person_id}")
@@ -448,14 +451,22 @@ async def get_asset_original(
 @app.get("/api/assets/{asset_id}/video/playback")
 async def get_video_playback(
     asset_id: str,
+    request: Request,
     client: httpx.AsyncClient = Depends(get_client)
 ):
-    """Get video for playback with proper streaming."""
+    """Get video for playback with proper streaming and range support."""
     validate_uuid(asset_id, "asset_id")
     
+    # Forward Range header so the client can request partial content (saves bandwidth)
+    range_header = request.headers.get("range")
+    forward_headers = {"Range": range_header} if range_header else None
+    
     try:
-        # Stream video to avoid memory issues with large files
-        req = client.build_request("GET", f"/api/assets/{asset_id}/video/playback")
+        req = client.build_request(
+            "GET",
+            f"/api/assets/{asset_id}/video/playback",
+            headers=forward_headers
+        )
         response = await client.send(req, stream=True)
         response.raise_for_status()
         
@@ -464,13 +475,20 @@ async def get_video_playback(
                 yield chunk
             await response.aclose()
         
+        # Propagate relevant streaming headers
+        headers = {
+            "Accept-Ranges": response.headers.get("accept-ranges", "bytes"),
+        }
+        if "content-length" in response.headers:
+            headers["Content-Length"] = response.headers["content-length"]
+        if "content-range" in response.headers:
+            headers["Content-Range"] = response.headers["content-range"]
+
         return StreamingResponse(
             stream_content(),
+            status_code=response.status_code,
             media_type=response.headers.get("content-type", "video/mp4"),
-            headers={
-                "Accept-Ranges": "bytes",
-                "Content-Length": response.headers.get("content-length", ""),
-            }
+            headers=headers
         )
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=e.response.status_code, detail="Video not found")
