@@ -27,10 +27,12 @@ class Settings(BaseSettings):
     cache_ttl_people: int = 300  # 5 minutes
     cache_ttl_suggestions: int = 600  # 10 minutes
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+        "extra": "ignore"
+    }
 
 
 # Global settings instance

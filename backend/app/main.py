@@ -38,6 +38,12 @@ def validate_uuid(value: str, field_name: str = "id") -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
+    # Validate configuration on startup
+    if not settings.immich_api_key:
+        print("ERROR: IMMICH_API_KEY is not configured!")
+        print(f"Current IMMICH_URL: {settings.immich_url}")
+        print("Please set IMMICH_API_KEY environment variable")
+    
     # Startup: Initialize HTTP client with proper timeout config
     timeout = httpx.Timeout(30.0, read=120.0)  # Longer read timeout for large files
     app.state.http_client = httpx.AsyncClient(
@@ -46,6 +52,17 @@ async def lifespan(app: FastAPI):
         timeout=timeout,
         follow_redirects=True
     )
+    
+    # Test connection to Immich
+    try:
+        response = await app.state.http_client.get("/api/server/ping")
+        if response.status_code == 200:
+            print(f"✓ Connected to Immich at {settings.immich_url}")
+        else:
+            print(f"✗ Immich returned status {response.status_code}")
+    except Exception as e:
+        print(f"✗ Cannot connect to Immich: {e}")
+    
     yield
     # Shutdown: Close HTTP client
     await app.state.http_client.aclose()
