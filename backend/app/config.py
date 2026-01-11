@@ -4,7 +4,8 @@ Uses environment variables for sensitive data.
 """
 
 from pydantic_settings import BaseSettings
-from typing import List
+from pydantic import field_validator
+from typing import List, Union
 import os
 
 
@@ -20,12 +21,21 @@ class Settings(BaseSettings):
     port: int = 8000
     debug: bool = False
     
-    # CORS settings
+    # CORS settings - accepts comma-separated string or list
     cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:8000"]
     
     # Cache settings
     cache_ttl_people: int = 300  # 5 minutes
     cache_ttl_suggestions: int = 600  # 10 minutes
+    
+    @field_validator('cors_origins', mode='before')
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Parse CORS origins from comma-separated string or list."""
+        if isinstance(v, str):
+            # Handle comma-separated string
+            return [origin.strip() for origin in v.split(',') if origin.strip()]
+        return v
     
     model_config = {
         "env_file": ".env",
