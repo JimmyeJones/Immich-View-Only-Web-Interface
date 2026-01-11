@@ -15,7 +15,8 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - DEBUG=${DEBUG:-false}
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
+      # Keep this as a JSON array string so pydantic can parse it without errors
+      - CORS_ORIGINS=${CORS_ORIGINS:-["http://localhost:3000"]}
     restart: unless-stopped
     networks:
       - immich-gallery
