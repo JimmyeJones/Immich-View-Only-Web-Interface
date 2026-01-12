@@ -538,6 +538,43 @@ input, select {
     gap: var(--space-xs);
 }
 
+.filter-banner {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    border: 1px solid var(--color-primary);
+}
+
+.banner-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    opacity: 0.7;
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+}
+
+.banner-close:hover {
+    opacity: 1;
+}
+
+.banner-close .icon {
+    width: 16px;
+    height: 16px;
+}
+
 .filter-tag {
     display: inline-flex;
     align-items: center;

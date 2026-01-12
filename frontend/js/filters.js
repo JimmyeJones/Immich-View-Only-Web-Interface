@@ -100,36 +100,43 @@ const Filters = {
 
         // Date filters
         this.elements.dateFrom.addEventListener('change', (e) => {
-            State.set({ dateFrom: e.target.value || null });
+            State.set({ dateFrom: e.target.value || null, page: 1, assets: [] });
+            Gallery.load();
         });
 
         this.elements.dateTo.addEventListener('change', (e) => {
-            State.set({ dateTo: e.target.value || null });
+            State.set({ dateTo: e.target.value || null, page: 1, assets: [] });
+            Gallery.load();
         });
 
         // Media type radios
         document.querySelectorAll('input[name="media-type"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
-                State.set({ mediaType: e.target.value });
+                State.set({ mediaType: e.target.value, page: 1, assets: [] });
+                Gallery.load();
             });
         });
 
         // Camera selects
         this.elements.cameraMake.addEventListener('change', (e) => {
-            State.set({ cameraMake: e.target.value });
+            State.set({ cameraMake: e.target.value, page: 1, assets: [] });
+            Gallery.load();
         });
 
         this.elements.cameraModel.addEventListener('change', (e) => {
-            State.set({ cameraModel: e.target.value });
+            State.set({ cameraModel: e.target.value, page: 1, assets: [] });
+            Gallery.load();
         });
 
         // Location selects
         this.elements.locationCountry.addEventListener('change', (e) => {
-            State.set({ country: e.target.value });
+            State.set({ country: e.target.value, page: 1, assets: [] });
+            Gallery.load();
         });
 
         this.elements.locationCity.addEventListener('change', (e) => {
-            State.set({ city: e.target.value });
+            State.set({ city: e.target.value, page: 1, assets: [] });
+            Gallery.load();
         });
     },
 
@@ -296,8 +303,9 @@ const Filters = {
             newIds = [...currentIds, personId];
         }
 
-        State.set({ personIds: newIds });
+        State.set({ personIds: newIds, page: 1, assets: [] });
         this.updatePeopleChips(newIds);
+        Gallery.load();
     },
 
     /**
@@ -309,45 +317,53 @@ const Filters = {
             chip.classList.toggle('selected', selectedIds.includes(personId));
         });
         
-        // Add chips for selected people that don't have chips yet (unnamed people)
-        const existingChipIds = Array.from(this.elements.peopleChips.querySelectorAll('.person-chip'))
-            .map(chip => chip.getAttribute('data-person-id'));
-        
-        selectedIds.forEach(personId => {
-            if (!existingChipIds.includes(personId)) {
-                // This is an unnamed person - create a chip for them
-                this.addUnnamedPersonChip(personId);
-            }
-        });
+        // Update unnamed person banners at the top
+        this.updateUnnamedPersonBanners(selectedIds);
     },
 
     /**
-     * Add a chip for an unnamed person
+     * Update banners for unnamed people filters
      */
-    addUnnamedPersonChip(personId) {
-        // Check if chip already exists
-        if (this.elements.peopleChips.querySelector(`[data-person-id="${personId}"]`)) {
-            return;
-        }
+    updateUnnamedPersonBanners(selectedIds) {
+        const activeFiltersContainer = document.getElementById('active-filters');
+        if (!activeFiltersContainer) return;
         
-        const chip = document.createElement('button');
-        chip.className = 'person-chip selected';
-        chip.setAttribute('data-person-id', personId);
-        chip.setAttribute('data-unnamed', 'true');
+        // Get list of named people IDs
+        const namedPeopleIds = State.getProperty('people').map(p => p.id);
         
-        chip.innerHTML = `
-            <img src="${API.getPersonThumbnailUrl(personId)}" alt="Unnamed Person" onerror="this.style.display='none'">
-            <span>Unnamed Person</span>
-        `;
+        // Find unnamed selected people (those in selectedIds but not in namedPeopleIds)
+        const unnamedSelectedIds = selectedIds.filter(id => !namedPeopleIds.includes(id));
         
-        chip.addEventListener('click', () => this.togglePerson(personId));
+        // Remove existing unnamed person banners
+        activeFiltersContainer.querySelectorAll('.unnamed-person-banner').forEach(banner => banner.remove());
         
-        // Add at the beginning (before named people)
-        if (this.elements.peopleChips.firstChild) {
-            this.elements.peopleChips.insertBefore(chip, this.elements.peopleChips.firstChild);
-        } else {
-            this.elements.peopleChips.appendChild(chip);
-        }
+        // Add banners for each unnamed person
+        unnamedSelectedIds.forEach(personId => {
+            const banner = document.createElement('div');
+            banner.className = 'filter-banner unnamed-person-banner';
+            banner.setAttribute('data-person-id', personId);
+            
+            banner.innerHTML = `
+                <span>Filtering by: Unnamed Person</span>
+                <button class="banner-close" aria-label="Remove filter">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            `;
+            
+            banner.querySelector('.banner-close').addEventListener('click', () => {
+                // Remove this person from filters
+                const currentIds = State.getProperty('personIds');
+                const newIds = currentIds.filter(id => id !== personId);
+                State.set({ personIds: newIds, page: 1, assets: [] });
+                this.updatePeopleChips(newIds);
+                Gallery.load();
+            });
+            
+            activeFiltersContainer.appendChild(banner);
+        });
     },
 
     /**
