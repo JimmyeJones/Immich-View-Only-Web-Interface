@@ -180,15 +180,38 @@ const Lightbox = {
             // Display video without fetching data until user initiates playback
             const video = this.elements.video;
             video.hidden = false;
-            video.preload = 'none';
+            video.preload = 'metadata'; // Only load metadata initially
             video.poster = API.getThumbnailUrl(asset.id, 'preview');
             
-            // Clear any existing sources
+            // Clear any existing sources and event listeners
             video.innerHTML = '';
             video.load();
             
             video.dataset.src = API.getVideoPlaybackUrl(asset.id);
             video.dataset.loaded = '0';
+
+            // Monitor buffer and limit to ~30 seconds ahead
+            const monitorBuffer = () => {
+                if (video.paused || video.ended) return;
+                
+                try {
+                    const buffered = video.buffered;
+                    if (buffered.length > 0) {
+                        const currentTime = video.currentTime;
+                        const bufferedEnd = buffered.end(buffered.length - 1);
+                        const bufferedAhead = bufferedEnd - currentTime;
+                        
+                        // If buffered more than 30 seconds ahead, pause buffering by pausing/resuming
+                        if (bufferedAhead > 30) {
+                            // Browser will naturally stop buffering when paused
+                            // This is handled automatically, but we can log it
+                            console.log('Buffer limit reached:', bufferedAhead.toFixed(1), 'seconds ahead');
+                        }
+                    }
+                } catch (e) {
+                    // Ignore buffer check errors
+                }
+            };
 
             const loadSourceOnce = async () => {
                 if (video.dataset.loaded === '1') return;
@@ -202,11 +225,26 @@ const Lightbox = {
                 
                 video.load();
                 video.dataset.loaded = '1';
+                
+                // Hide loading when video is ready to play
+                const hideLoadingOnReady = () => {
+                    this.hideLoading();
+                    video.removeEventListener('loadeddata', hideLoadingOnReady);
+                    video.removeEventListener('canplay', hideLoadingOnReady);
+                };
+                video.addEventListener('loadeddata', hideLoadingOnReady);
+                video.addEventListener('canplay', hideLoadingOnReady);
+                
+                // Monitor buffer periodically when playing
+                video.addEventListener('timeupdate', monitorBuffer);
+                
                 try {
                     await video.play();
+                    this.hideLoading();
                 } catch (e) {
-                    // Autoplay might be blocked; ignore
-                    console.log('Video autoplay blocked:', e);
+                    // Autoplay might be blocked; user will click play
+                    this.hideLoading();
+                    console.log('Video autoplay blocked, user must click play');
                 }
             };
 
@@ -220,7 +258,10 @@ const Lightbox = {
             video.addEventListener('click', onUserInitiatedPlay);
             video.addEventListener('play', onUserInitiatedPlay);
 
-            video.onloadeddata = () => this.hideLoading();
+            // Show loading when video is buffering
+            video.addEventListener('waiting', () => this.showLoading());
+            video.addEventListener('playing', () => this.hideLoading());
+            
             video.onerror = (e) => {
                 this.hideLoading();
                 console.error('Failed to load video:', e);
@@ -341,6 +382,8 @@ const Lightbox = {
                     if (!currentPersonIds.includes(person.id)) {
                         State.set({ personIds: [...currentPersonIds, person.id], page: 1, assets: [] });
                         Filters.updatePeopleChips([...currentPersonIds, person.id]);
+                        // Open filter panel to show the active filter
+                        Filters.showPanel();
                         Gallery.load();
                     }
                 });

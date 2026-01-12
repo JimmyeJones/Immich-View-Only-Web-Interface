@@ -142,6 +142,13 @@ const Filters = {
     },
 
     /**
+     * Show filter panel (open it)
+     */
+    showPanel() {
+        this.elements.filterPanel.hidden = false;
+    },
+
+    /**
      * Apply current filters
      */
     apply() {
