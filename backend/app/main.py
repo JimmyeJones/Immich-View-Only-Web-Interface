@@ -494,6 +494,13 @@ async def download_asset(
     validate_uuid(asset_id, "asset_id")
     
     try:
+        # Block video downloads while allowing photos
+        meta_resp = await client.get(f"/api/assets/{asset_id}")
+        meta_resp.raise_for_status()
+        asset_meta = meta_resp.json()
+        if asset_meta.get("type") == "VIDEO":
+            raise HTTPException(status_code=403, detail="Video downloads are disabled")
+
         req = client.build_request("GET", f"/api/assets/{asset_id}/original")
         response = await client.send(req, stream=True)
         response.raise_for_status()

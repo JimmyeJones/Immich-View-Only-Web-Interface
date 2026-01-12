@@ -464,6 +464,16 @@ const Lightbox = {
      */
     updateDownloadLink(asset) {
         if (!this.elements.download) return;
+        const isVideo = asset.type === 'VIDEO';
+        this.elements.download.hidden = isVideo;
+        this.elements.download.disabled = isVideo;
+
+        if (isVideo) {
+            return;
+        }
+
+        this.elements.download.hidden = false;
+        this.elements.download.disabled = false;
         this.elements.download.dataset.assetId = asset.id;
         this.elements.download.dataset.fileName = asset.originalFileName || 'asset';
     },
