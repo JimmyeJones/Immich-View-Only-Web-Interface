@@ -324,12 +324,13 @@ const Gallery = {
         }
 
         if (state.personIds.length > 0) {
-            const people = State.getProperty('people');
+            const people = State.getProperty('people') || [];
+            const peopleById = new Map(people.map(p => [p.id, p]));
+
             state.personIds.forEach(id => {
-                const person = people.find(p => p.id === id);
-                if (person) {
-                    filters.push({ label: person.name, key: 'person', value: id });
-                }
+                const person = peopleById.get(id);
+                const label = person?.name?.trim() || 'Unnamed person';
+                filters.push({ label, key: 'person', value: id });
             });
         }
 
