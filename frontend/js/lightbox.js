@@ -190,6 +190,9 @@ const Lightbox = {
             video.dataset.src = API.getVideoPlaybackUrl(asset.id);
             video.dataset.loaded = '0';
 
+            // Hide the spinner until the user initiates playback so the poster is clickable
+            this.hideLoading();
+
             // Monitor buffer and limit to ~30 seconds ahead
             const monitorBuffer = () => {
                 if (video.paused || video.ended) return;
