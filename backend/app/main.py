@@ -448,6 +448,49 @@ async def get_asset_original(
         raise HTTPException(status_code=e.response.status_code, detail="Asset not found")
 
 
+@app.get("/api/assets/{asset_id}/download")
+async def download_asset(
+    asset_id: str,
+    client: httpx.AsyncClient = Depends(get_client)
+):
+    """Download original asset with attachment headers (keeps streaming)."""
+    validate_uuid(asset_id, "asset_id")
+    
+    try:
+        req = client.build_request("GET", f"/api/assets/{asset_id}/original")
+        response = await client.send(req, stream=True)
+        response.raise_for_status()
+
+        filename = None
+        cd = response.headers.get("content-disposition")
+        if cd and "filename=" in cd:
+            filename = cd.split("filename=")[-1].strip('"')
+        if not filename:
+            filename = f"{asset_id}.bin"
+
+        async def stream_content():
+            async for chunk in response.aiter_bytes(chunk_size=65536):
+                yield chunk
+            await response.aclose()
+        
+        headers = {
+            "Content-Disposition": f"attachment; filename=\"{filename}\"",
+            "Cache-Control": "public, max-age=3600",
+        }
+        if "content-length" in response.headers:
+            headers["Content-Length"] = response.headers["content-length"]
+        if "content-type" in response.headers:
+            headers["Content-Type"] = response.headers["content-type"]
+        
+        return StreamingResponse(
+            stream_content(),
+            media_type=response.headers.get("content-type", "application/octet-stream"),
+            headers=headers
+        )
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail="Asset not found")
+
+
 @app.get("/api/assets/{asset_id}/video/playback")
 async def get_video_playback(
     asset_id: str,
@@ -457,9 +500,10 @@ async def get_video_playback(
     """Get video for playback with proper streaming and range support."""
     validate_uuid(asset_id, "asset_id")
     
-    # Forward Range header so the client can request partial content (saves bandwidth)
-    range_header = request.headers.get("range")
-    forward_headers = {"Range": range_header} if range_header else None
+    # Always send a Range header to encourage partial responses; forward the client's Range if present
+    client_range = request.headers.get("range")
+    range_header = client_range if client_range else "bytes=0-"
+    forward_headers = {"Range": range_header}
     
     try:
         req = client.build_request(
@@ -484,6 +528,7 @@ async def get_video_playback(
         if "content-range" in response.headers:
             headers["Content-Range"] = response.headers["content-range"]
 
+        # Respect upstream status (200 for full, 206 for partial)
         return StreamingResponse(
             stream_content(),
             status_code=response.status_code,

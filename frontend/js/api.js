@@ -104,6 +104,10 @@ const API = {
         return `${this.baseUrl}/assets/${assetId}/original`;
     },
 
+    getDownloadUrl(assetId) {
+        return `${this.baseUrl}/assets/${assetId}/download`;
+    },
+
     getVideoPlaybackUrl(assetId) {
         return `${this.baseUrl}/assets/${assetId}/video/playback`;
     },

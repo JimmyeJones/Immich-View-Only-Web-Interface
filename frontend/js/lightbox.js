@@ -54,10 +54,8 @@ const Lightbox = {
         this.elements.infoToggle.addEventListener('click', () => this.toggleSidebar());
         this.elements.sidebarClose?.addEventListener('click', () => this.toggleSidebar());
         this.elements.download?.addEventListener('click', (e) => {
-            // If href is missing, prevent navigation
-            if (!this.elements.download.href) {
-                e.preventDefault();
-            }
+            e.preventDefault();
+            this.downloadAsset();
         });
 
         // Keyboard navigation
@@ -83,6 +81,11 @@ const Lightbox = {
         // Show lightbox
         this.elements.lightbox.hidden = false;
         document.body.style.overflow = 'hidden';
+
+        // Ensure download button is visible once an asset is open
+        if (this.elements.download) {
+            this.elements.download.hidden = false;
+        }
 
         // Show loading
         this.showLoading();
@@ -124,6 +127,12 @@ const Lightbox = {
         // Clear state
         this.currentAsset = null;
         this.currentIndex = -1;
+
+        // Hide download button until next open
+        if (this.elements.download) {
+            this.elements.download.hidden = true;
+            this.elements.download.removeAttribute('href');
+        }
 
         State.set({
             lightboxAssetId: null,
@@ -177,13 +186,40 @@ const Lightbox = {
         this.elements.video.hidden = true;
 
         if (isVideo) {
-            // Display video
-            this.elements.video.preload = 'metadata';
-            this.elements.video.poster = API.getThumbnailUrl(asset.id, 'preview');
-            this.elements.video.src = API.getVideoPlaybackUrl(asset.id);
-            this.elements.video.hidden = false;
-            this.elements.video.onloadeddata = () => this.hideLoading();
-            this.elements.video.onerror = () => {
+            // Display video without fetching data until user initiates playback
+            const video = this.elements.video;
+            video.hidden = false;
+            video.preload = 'none';
+            video.poster = API.getThumbnailUrl(asset.id, 'preview');
+            video.src = '';
+            video.dataset.src = API.getVideoPlaybackUrl(asset.id);
+            video.dataset.loaded = '0';
+
+            const loadSourceOnce = async () => {
+                if (video.dataset.loaded === '1') return;
+                this.showLoading();
+                video.src = video.dataset.src;
+                video.load();
+                video.dataset.loaded = '1';
+                try {
+                    await video.play();
+                } catch (e) {
+                    // Autoplay might be blocked; ignore
+                }
+            };
+
+            // First user interaction loads the stream
+            const onUserInitiatedPlay = () => {
+                loadSourceOnce();
+                video.removeEventListener('click', onUserInitiatedPlay);
+                video.removeEventListener('play', onUserInitiatedPlay);
+            };
+
+            video.addEventListener('click', onUserInitiatedPlay);
+            video.addEventListener('play', onUserInitiatedPlay);
+
+            video.onloadeddata = () => this.hideLoading();
+            video.onerror = () => {
                 this.hideLoading();
                 console.error('Failed to load video');
             };
@@ -193,26 +229,17 @@ const Lightbox = {
             img.alt = asset.originalFileName || 'Photo';
             img.hidden = false;
 
-            // Load a fast preview first, then swap to full-res once ready
+            // Show optimized preview only; keep originals for explicit downloads
             const previewUrl = API.getThumbnailUrl(asset.id, 'preview');
-            const originalUrl = API.getOriginalUrl(asset.id);
 
             img.onload = () => this.hideLoading();
             img.onerror = () => {
                 this.hideLoading();
+                // Fallback to smaller thumbnail if preview fails
+                img.src = API.getThumbnailUrl(asset.id, 'thumbnail');
             };
 
             img.src = previewUrl;
-
-            // Preload full resolution in the background
-            const hiRes = new Image();
-            hiRes.onload = () => {
-                img.src = originalUrl;
-            };
-            hiRes.onerror = () => {
-                // Keep preview if original fails
-            };
-            hiRes.src = originalUrl;
         }
     },
 
@@ -372,9 +399,37 @@ const Lightbox = {
      */
     updateDownloadLink(asset) {
         if (!this.elements.download) return;
-        const url = API.getOriginalUrl(asset.id);
-        this.elements.download.href = url;
-        this.elements.download.download = asset.originalFileName || 'asset';
+        this.elements.download.dataset.assetId = asset.id;
+        this.elements.download.dataset.fileName = asset.originalFileName || 'asset';
+    },
+
+    /**
+     * Download the current asset
+     */
+    async downloadAsset() {
+        if (!this.currentAsset) return;
+        
+        try {
+            const url = API.getDownloadUrl(this.currentAsset.id);
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`Download failed: ${response.statusText}`);
+            }
+            
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = this.currentAsset.originalFileName || 'asset';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Failed to download asset:', error);
+            alert('Download failed. Please try again.');
+        }
     },
 
     /**
