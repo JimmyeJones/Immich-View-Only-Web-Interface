@@ -82,11 +82,6 @@ const Lightbox = {
         this.elements.lightbox.hidden = false;
         document.body.style.overflow = 'hidden';
 
-        // Ensure download button is visible once an asset is open
-        if (this.elements.download) {
-            this.elements.download.hidden = false;
-        }
-
         // Show loading
         this.showLoading();
 
@@ -127,12 +122,6 @@ const Lightbox = {
         // Clear state
         this.currentAsset = null;
         this.currentIndex = -1;
-
-        // Hide download button until next open
-        if (this.elements.download) {
-            this.elements.download.hidden = true;
-            this.elements.download.removeAttribute('href');
-        }
 
         State.set({
             lightboxAssetId: null,
@@ -229,17 +218,27 @@ const Lightbox = {
             img.alt = asset.originalFileName || 'Photo';
             img.hidden = false;
 
-            // Show optimized preview only; keep originals for explicit downloads
+            // Start with small thumbnail, then load preview for better quality
+            const thumbnailUrl = API.getThumbnailUrl(asset.id, 'thumbnail');
             const previewUrl = API.getThumbnailUrl(asset.id, 'preview');
 
+            // Load small thumbnail first for instant display
+            img.src = thumbnailUrl;
             img.onload = () => this.hideLoading();
             img.onerror = () => {
                 this.hideLoading();
-                // Fallback to smaller thumbnail if preview fails
-                img.src = API.getThumbnailUrl(asset.id, 'thumbnail');
+                console.error('Failed to load thumbnail');
             };
 
-            img.src = previewUrl;
+            // Preload higher quality preview in background
+            const previewImg = new Image();
+            previewImg.src = previewUrl;
+            previewImg.onload = () => {
+                // Only switch to preview if still showing same asset
+                if (this.currentAsset?.id === asset.id) {
+                    img.src = previewUrl;
+                }
+            };
         }
     },
 

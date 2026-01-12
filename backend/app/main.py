@@ -13,6 +13,13 @@ from pydantic import BaseModel, Field, field_validator
 import httpx
 import re
 from functools import lru_cache
+from io import BytesIO
+
+try:
+    from PIL import Image
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
 
 from .config import settings
 from .cache import cache_manager
@@ -397,7 +404,7 @@ async def get_asset_thumbnail(
     size: str = Query("thumbnail", pattern=r"^(thumbnail|preview)$"),
     client: httpx.AsyncClient = Depends(get_client)
 ):
-    """Get asset thumbnail for grid display."""
+    """Get asset thumbnail for grid display with optional size limiting."""
     validate_uuid(asset_id, "asset_id")
     
     try:
@@ -406,9 +413,39 @@ async def get_asset_thumbnail(
             params={"size": size}
         )
         response.raise_for_status()
+        
+        content = response.content
+        content_type = response.headers.get("content-type", "image/jpeg")
+        
+        # Compress image if it exceeds 5MB and PIL is available
+        if PIL_AVAILABLE and len(content) > 5 * 1024 * 1024:  # 5MB
+            try:
+                img = Image.open(BytesIO(content))
+                # Convert RGBA to RGB if needed (for JPEG)
+                if img.mode == 'RGBA' and 'jpeg' in content_type.lower():
+                    rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                    rgb_img.paste(img, mask=img.split()[3])
+                    img = rgb_img
+                
+                # Compress with quality reduction
+                output = BytesIO()
+                # Start with high quality and reduce if needed
+                for quality in [85, 75, 65, 55]:
+                    output.seek(0)
+                    output.truncate(0)
+                    img.save(output, format='JPEG', quality=quality, optimize=True)
+                    if output.tell() <= 5 * 1024 * 1024:
+                        break
+                
+                content = output.getvalue()
+                content_type = "image/jpeg"
+            except Exception as e:
+                # If compression fails, return original
+                print(f"Warning: Failed to compress image {asset_id}: {e}")
+        
         return StreamingResponse(
-            iter([response.content]),
-            media_type=response.headers.get("content-type", "image/jpeg"),
+            iter([content]),
+            media_type=content_type,
             headers={
                 "Cache-Control": "public, max-age=86400",  # Cache for 24 hours
             }
