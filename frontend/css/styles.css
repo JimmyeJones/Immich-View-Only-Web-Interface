@@ -808,7 +808,7 @@ input, select {
 .lightbox-download {
     position: absolute;
     top: var(--space-lg);
-    right: var(--space-lg);
+    right: calc(var(--space-lg) + 60px);
     display: flex;
     align-items: center;
     gap: 8px;

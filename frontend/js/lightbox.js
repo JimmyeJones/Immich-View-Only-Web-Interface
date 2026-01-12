@@ -55,6 +55,7 @@ const Lightbox = {
         this.elements.sidebarClose?.addEventListener('click', () => this.toggleSidebar());
         this.elements.download?.addEventListener('click', (e) => {
             e.preventDefault();
+            console.log('Download button clicked', this.currentAsset);
             this.downloadAsset();
         });
 
@@ -221,10 +222,16 @@ const Lightbox = {
             // Start with small thumbnail, then load preview for better quality
             const thumbnailUrl = API.getThumbnailUrl(asset.id, 'thumbnail');
             const previewUrl = API.getThumbnailUrl(asset.id, 'preview');
+            
+            console.log('Loading image - thumbnail:', thumbnailUrl);
+            console.log('Will load preview in background:', previewUrl);
 
             // Load small thumbnail first for instant display
             img.src = thumbnailUrl;
-            img.onload = () => this.hideLoading();
+            img.onload = () => {
+                console.log('Thumbnail loaded successfully');
+                this.hideLoading();
+            };
             img.onerror = () => {
                 this.hideLoading();
                 console.error('Failed to load thumbnail');
@@ -236,6 +243,7 @@ const Lightbox = {
             previewImg.onload = () => {
                 // Only switch to preview if still showing same asset
                 if (this.currentAsset?.id === asset.id) {
+                    console.log('Preview loaded, upgrading image quality');
                     img.src = previewUrl;
                 }
             };
@@ -406,23 +414,34 @@ const Lightbox = {
      * Download the current asset
      */
     async downloadAsset() {
-        if (!this.currentAsset) return;
+        if (!this.currentAsset) {
+            console.error('No current asset to download');
+            return;
+        }
+        
+        console.log('Starting download for asset:', this.currentAsset.id, this.currentAsset.originalFileName);
         
         try {
             const url = API.getDownloadUrl(this.currentAsset.id);
+            console.log('Download URL:', url);
+            
             const response = await fetch(url);
+            console.log('Download response:', response.status, response.statusText);
             
             if (!response.ok) {
                 throw new Error(`Download failed: ${response.statusText}`);
             }
             
             const blob = await response.blob();
+            console.log('Blob created:', blob.size, 'bytes');
+            
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = blobUrl;
             link.download = this.currentAsset.originalFileName || 'asset';
             document.body.appendChild(link);
             link.click();
+            console.log('Download triggered');
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
