@@ -308,6 +308,46 @@ const Filters = {
             const personId = chip.getAttribute('data-person-id');
             chip.classList.toggle('selected', selectedIds.includes(personId));
         });
+        
+        // Add chips for selected people that don't have chips yet (unnamed people)
+        const existingChipIds = Array.from(this.elements.peopleChips.querySelectorAll('.person-chip'))
+            .map(chip => chip.getAttribute('data-person-id'));
+        
+        selectedIds.forEach(personId => {
+            if (!existingChipIds.includes(personId)) {
+                // This is an unnamed person - create a chip for them
+                this.addUnnamedPersonChip(personId);
+            }
+        });
+    },
+
+    /**
+     * Add a chip for an unnamed person
+     */
+    addUnnamedPersonChip(personId) {
+        // Check if chip already exists
+        if (this.elements.peopleChips.querySelector(`[data-person-id="${personId}"]`)) {
+            return;
+        }
+        
+        const chip = document.createElement('button');
+        chip.className = 'person-chip selected';
+        chip.setAttribute('data-person-id', personId);
+        chip.setAttribute('data-unnamed', 'true');
+        
+        chip.innerHTML = `
+            <img src="${API.getPersonThumbnailUrl(personId)}" alt="Unnamed Person" onerror="this.style.display='none'">
+            <span>Unnamed Person</span>
+        `;
+        
+        chip.addEventListener('click', () => this.togglePerson(personId));
+        
+        // Add at the beginning (before named people)
+        if (this.elements.peopleChips.firstChild) {
+            this.elements.peopleChips.insertBefore(chip, this.elements.peopleChips.firstChild);
+        } else {
+            this.elements.peopleChips.appendChild(chip);
+        }
     },
 
     /**
