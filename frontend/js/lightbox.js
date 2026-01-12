@@ -116,9 +116,10 @@ const Lightbox = {
         this.elements.lightbox.hidden = true;
         document.body.style.overflow = '';
 
-        // Stop video playback
+        // Stop video playback and clear sources
         this.elements.video.pause();
-        this.elements.video.src = '';
+        this.elements.video.innerHTML = '';
+        this.elements.video.load();
 
         // Clear state
         this.currentAsset = null;
@@ -181,20 +182,31 @@ const Lightbox = {
             video.hidden = false;
             video.preload = 'none';
             video.poster = API.getThumbnailUrl(asset.id, 'preview');
-            video.src = '';
+            
+            // Clear any existing sources
+            video.innerHTML = '';
+            video.load();
+            
             video.dataset.src = API.getVideoPlaybackUrl(asset.id);
             video.dataset.loaded = '0';
 
             const loadSourceOnce = async () => {
                 if (video.dataset.loaded === '1') return;
                 this.showLoading();
-                video.src = video.dataset.src;
+                
+                // Create source element with proper type
+                const source = document.createElement('source');
+                source.src = video.dataset.src;
+                source.type = 'video/mp4'; // Immich typically serves MP4
+                video.appendChild(source);
+                
                 video.load();
                 video.dataset.loaded = '1';
                 try {
                     await video.play();
                 } catch (e) {
                     // Autoplay might be blocked; ignore
+                    console.log('Video autoplay blocked:', e);
                 }
             };
 
@@ -209,9 +221,9 @@ const Lightbox = {
             video.addEventListener('play', onUserInitiatedPlay);
 
             video.onloadeddata = () => this.hideLoading();
-            video.onerror = () => {
+            video.onerror = (e) => {
                 this.hideLoading();
-                console.error('Failed to load video');
+                console.error('Failed to load video:', e);
             };
         } else {
             // Display image
