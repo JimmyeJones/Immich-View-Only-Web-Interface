@@ -262,7 +262,8 @@ async def search_assets(
     
     # Add optional filters only if provided
     if filters.query:
-        search_payload["originalFileName"] = filters.query
+        # Use 'query' parameter for comprehensive search across metadata
+        search_payload["query"] = filters.query
     
     if filters.personIds:
         search_payload["personIds"] = filters.personIds
