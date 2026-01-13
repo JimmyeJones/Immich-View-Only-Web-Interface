@@ -251,21 +251,22 @@ async def search_assets(
     client: httpx.AsyncClient = Depends(get_client)
 ):
     """
-    Search assets using Immich's metadata search.
-    All filtering is delegated to Immich - no local filtering.
+    Search assets using Immich's metadata search API.
+    NOTE: Text/filename search is NOT supported by Immich's /api/search/metadata endpoint.
+    Only metadata filters (people, camera, location, date, media type) are supported.
     """
-    # Build the search payload for Immich
+    
+    # Build the search payload for Immich's /api/search/metadata endpoint
     search_payload = {
         "page": filters.page,
         "size": filters.size,
     }
     
-    # Add optional filters only if provided
-    if filters.query:
-        # Use 'query' parameter for comprehensive search across metadata
-        search_payload["query"] = filters.query
+    # NOTE: The 'query' field is intentionally NOT sent to Immich
+    # because /api/search/metadata doesn't support text search.
+    # Only send actual metadata filter fields that Immich understands.
     
-    if filters.personIds:
+    if filters.personIds and len(filters.personIds) > 0:
         search_payload["personIds"] = filters.personIds
     
     if filters.make:
@@ -293,14 +294,35 @@ async def search_assets(
         search_payload["type"] = filters.type
     
     try:
+        print(f"DEBUG: Search request - Payload: {search_payload}")
         response = await client.post("/api/search/metadata", json=search_payload)
         response.raise_for_status()
         data = response.json()
         
-        # Normalize response
+        print(f"DEBUG: Search response status: {response.status_code}")
+        
+        # Normalize response based on Immich's actual response structure
         assets = data.get("assets", {})
         items = assets.get("items", [])
         total = assets.get("count", len(items))
+        
+        # If user entered a text query, filter results client-side
+        # This is a fallback since Immich's metadata search doesn't support text search
+        if filters.query and items:
+            query_lower = filters.query.lower()
+            filtered_items = [
+                item for item in items
+                if (
+                    query_lower in str(item.get("originalFileName", "")).lower()
+                    or query_lower in str(item.get("exifInfo", {}).get("description", "")).lower()
+                    or query_lower in str(item.get("exifInfo", {}).get("model", "")).lower()
+                    or query_lower in str(item.get("exifInfo", {}).get("make", "")).lower()
+                )
+            ]
+            total = len(filtered_items)
+            items = filtered_items[:filters.size]  # Re-apply pagination on filtered results
+        
+        print(f"DEBUG: Extracted {len(items)} items, total count: {total}")
         
         # Calculate pagination info
         has_more = len(items) >= filters.size
@@ -313,12 +335,21 @@ async def search_assets(
             hasMore=has_more
         )
     except httpx.HTTPStatusError as e:
-        error_detail = "Search failed"
+        error_detail = f"HTTP {e.response.status_code}"
         try:
-            error_detail = e.response.json().get("message", error_detail)
+            error_data = e.response.json()
+            error_detail = error_data.get("message", error_data.get("detail", str(error_data)))
         except:
-            pass
+            try:
+                error_detail = e.response.text
+            except:
+                pass
+        
+        print(f"DEBUG: Search error - Status: {e.response.status_code}, Detail: {error_detail}")
         raise HTTPException(status_code=e.response.status_code, detail=error_detail)
+    except Exception as e:
+        print(f"DEBUG: Unexpected search error: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
 
 
 @app.get("/api/search/suggestions")
