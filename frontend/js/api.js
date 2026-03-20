@@ -141,6 +141,22 @@ const API = {
     },
 
     // ========================================================================
+    // Albums
+    // ========================================================================
+
+    async getAlbums() {
+        return this.get('/albums');
+    },
+
+    async getAlbum(albumId) {
+        return this.get(`/albums/${albumId}`);
+    },
+
+    getAlbumThumbnailUrl(albumId) {
+        return `${this.baseUrl}/albums/${albumId}/thumbnail`;
+    },
+
+    // ========================================================================
     // Statistics
     // ========================================================================
 

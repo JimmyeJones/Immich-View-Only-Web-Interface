@@ -34,6 +34,22 @@
                 </div>
                 
                 <div class="header-actions">
+                    <nav class="view-tabs" role="tablist" aria-label="View">
+                        <button id="tab-photos" class="view-tab active" role="tab" aria-selected="true" aria-controls="photos-view">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                            <span>Photos</span>
+                        </button>
+                        <button id="tab-albums" class="view-tab" role="tab" aria-selected="false" aria-controls="albums-view">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            <span>Albums</span>
+                        </button>
+                    </nav>
                     <button id="filter-toggle" class="btn btn-icon" aria-label="Toggle filters">
                         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
@@ -183,6 +199,8 @@
 
         <!-- Main Content -->
         <main class="main-content">
+            <!-- Photos View -->
+            <div id="photos-view">
             <!-- Status Bar -->
             <div class="status-bar" id="status-bar">
                 <div class="status-info">
@@ -230,6 +248,92 @@
                 <p id="error-message">Unable to load photos. Please try again.</p>
                 <button id="retry-btn" class="btn btn-primary">Retry</button>
             </div>
+            </div><!-- /photos-view -->
+
+            <!-- Albums View -->
+            <div id="albums-view" hidden>
+                <!-- Albums Grid -->
+                <div class="albums-grid" id="albums-grid" hidden></div>
+
+                <!-- Albums Loading -->
+                <div class="gallery-loading" id="albums-loading" hidden>
+                    <div class="spinner"></div>
+                    <p>Loading albums...</p>
+                </div>
+
+                <!-- Albums Empty State -->
+                <div class="empty-state" id="albums-empty" hidden>
+                    <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <h3>No albums found</h3>
+                    <p>Create albums in Immich to see them here</p>
+                </div>
+
+                <!-- Albums Error State -->
+                <div class="error-state" id="albums-error" hidden>
+                    <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <h3>Something went wrong</h3>
+                    <p id="albums-error-message">Unable to load albums. Please try again.</p>
+                    <button id="albums-retry-btn" class="btn btn-primary">Retry</button>
+                </div>
+
+                <!-- Album Detail View -->
+                <div id="album-detail" hidden>
+                    <div class="album-detail-header">
+                        <button id="album-back-btn" class="btn btn-secondary album-back-btn">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                            All Albums
+                        </button>
+                        <div class="album-detail-title-group">
+                            <h2 id="album-detail-title" class="album-detail-title"></h2>
+                            <span id="album-detail-count" class="album-detail-count"></span>
+                        </div>
+                    </div>
+
+                    <!-- Album assets gallery -->
+                    <div class="gallery" id="album-detail-gallery"></div>
+
+                    <!-- Album detail loading -->
+                    <div class="gallery-loading" id="album-detail-loading">
+                        <div class="spinner"></div>
+                        <p>Loading album...</p>
+                    </div>
+
+                    <!-- Album detail empty -->
+                    <div class="empty-state" id="album-detail-empty" hidden>
+                        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                        <h3>This album is empty</h3>
+                        <p>No photos or videos in this album yet</p>
+                    </div>
+
+                    <!-- Album detail error -->
+                    <div class="error-state" id="album-detail-error" hidden>
+                        <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <h3>Something went wrong</h3>
+                        <p id="album-detail-error-message">Unable to load album.</p>
+                    </div>
+
+                    <!-- Album Load More -->
+                    <div class="load-more-container" id="album-load-more-container" hidden>
+                        <button id="album-load-more-btn" class="btn btn-secondary">Load More</button>
+                    </div>
+                </div><!-- /album-detail -->
+            </div><!-- /albums-view -->
         </main>
 
         <!-- Lightbox / Full-Screen Viewer -->
@@ -402,6 +506,7 @@
     <script src="js/gallery.js"></script>
     <script src="js/lightbox.js"></script>
     <script src="js/filters.js"></script>
+    <script src="js/albums.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

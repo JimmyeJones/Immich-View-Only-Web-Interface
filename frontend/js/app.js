@@ -17,6 +17,10 @@ const App = {
         Gallery.init();
         Lightbox.init();
         Filters.init();
+        Albums.init();
+
+        // Setup view tab switching
+        this.initViewTabs();
 
         // Load state from URL
         State.loadFromURL();
@@ -28,6 +32,46 @@ const App = {
         await Gallery.load();
 
         console.log('Application initialized successfully');
+    },
+
+    /**
+     * Initialize navigation tabs (Photos / Albums)
+     */
+    initViewTabs() {
+        const tabPhotos = document.getElementById('tab-photos');
+        const tabAlbums = document.getElementById('tab-albums');
+        const photosView = document.getElementById('photos-view');
+        const albumsView = document.getElementById('albums-view');
+        const filterToggle = document.getElementById('filter-toggle');
+        const searchContainer = document.querySelector('.search-container');
+        const statusBar = document.getElementById('status-bar');
+
+        tabPhotos.addEventListener('click', () => {
+            tabPhotos.classList.add('active');
+            tabPhotos.setAttribute('aria-selected', 'true');
+            tabAlbums.classList.remove('active');
+            tabAlbums.setAttribute('aria-selected', 'false');
+            photosView.hidden = false;
+            albumsView.hidden = true;
+            // Show filters and search for photos view
+            if (filterToggle) filterToggle.hidden = false;
+            if (searchContainer) searchContainer.style.display = '';
+            if (statusBar) statusBar.hidden = false;
+        });
+
+        tabAlbums.addEventListener('click', () => {
+            tabAlbums.classList.add('active');
+            tabAlbums.setAttribute('aria-selected', 'true');
+            tabPhotos.classList.remove('active');
+            tabPhotos.setAttribute('aria-selected', 'false');
+            photosView.hidden = true;
+            albumsView.hidden = false;
+            // Hide filters and search for albums view
+            if (filterToggle) filterToggle.hidden = true;
+            if (searchContainer) searchContainer.style.display = 'none';
+            if (statusBar) statusBar.hidden = true;
+            Albums.show();
+        });
     },
 
     /**
