@@ -672,15 +672,20 @@ async def get_album_thumbnail(
     validate_uuid(album_id, "album_id")
 
     try:
-        # Fetch album details to find the cover asset
-        response = await client.get(f"/api/albums/{album_id}", params={"withoutAssets": "false"})
+        # First, fetch lightweight album details (without assets) to find the cover asset
+        response = await client.get(f"/api/albums/{album_id}", params={"withoutAssets": "true"})
         response.raise_for_status()
         album_data = response.json()
 
-        # Use albumThumbnailAssetId if available, otherwise fall back to first asset
+        # Prefer albumThumbnailAssetId when available (no asset payload needed)
         cover_asset_id = album_data.get("albumThumbnailAssetId")
+
+        # Fallback: only fetch full assets if no thumbnail asset id is set
         if not cover_asset_id:
-            assets = album_data.get("assets", [])
+            full_response = await client.get(f"/api/albums/{album_id}", params={"withoutAssets": "false"})
+            full_response.raise_for_status()
+            full_album_data = full_response.json()
+            assets = full_album_data.get("assets", [])
             if assets:
                 cover_asset_id = assets[0].get("id")
 
