@@ -616,6 +616,96 @@ async def get_video_playback(
 
 
 # ============================================================================
+# Albums Endpoints
+# ============================================================================
+
+@app.get("/api/albums")
+async def get_albums(
+    client: httpx.AsyncClient = Depends(get_client)
+):
+    """Get list of all albums (cached)."""
+    cache_key = "albums"
+    cached = cache_manager.get(cache_key)
+    if cached:
+        return cached
+
+    try:
+        response = await client.get("/api/albums")
+        response.raise_for_status()
+        data = response.json()
+
+        # Immich returns a list directly
+        albums = data if isinstance(data, list) else data.get("albums", [])
+        albums.sort(key=lambda a: a.get("albumName", "").lower())
+
+        result = {"albums": albums, "total": len(albums)}
+        cache_manager.set(cache_key, result, ttl=300)  # Cache for 5 minutes
+        return result
+    except httpx.HTTPStatusError as e:
+        return {"albums": [], "total": 0, "error": f"Failed to get albums: {e.response.status_code}"}
+    except Exception as e:
+        return {"albums": [], "total": 0, "error": f"Failed to get albums: {str(e)}"}
+
+
+@app.get("/api/albums/{album_id}")
+async def get_album(
+    album_id: str,
+    client: httpx.AsyncClient = Depends(get_client)
+):
+    """Get a specific album's details including its assets."""
+    validate_uuid(album_id, "album_id")
+
+    try:
+        response = await client.get(f"/api/albums/{album_id}", params={"withoutAssets": "false"})
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail="Album not found")
+
+
+@app.get("/api/albums/{album_id}/thumbnail")
+async def get_album_thumbnail(
+    album_id: str,
+    client: httpx.AsyncClient = Depends(get_client)
+):
+    """Get an album's cover thumbnail (first asset thumbnail)."""
+    validate_uuid(album_id, "album_id")
+
+    try:
+        # Fetch album details to find the cover asset
+        response = await client.get(f"/api/albums/{album_id}", params={"withoutAssets": "false"})
+        response.raise_for_status()
+        album_data = response.json()
+
+        # Use albumThumbnailAssetId if available, otherwise fall back to first asset
+        cover_asset_id = album_data.get("albumThumbnailAssetId")
+        if not cover_asset_id:
+            assets = album_data.get("assets", [])
+            if assets:
+                cover_asset_id = assets[0].get("id")
+
+        if not cover_asset_id:
+            raise HTTPException(status_code=404, detail="Album has no assets")
+
+        # Stream the thumbnail for the cover asset
+        thumb_response = await client.get(
+            f"/api/assets/{cover_asset_id}/thumbnail",
+            params={"size": "preview"}
+        )
+        thumb_response.raise_for_status()
+
+        return StreamingResponse(
+            iter([thumb_response.content]),
+            media_type=thumb_response.headers.get("content-type", "image/jpeg"),
+            headers={"Cache-Control": "public, max-age=3600"}
+        )
+    except HTTPException:
+        raise
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail="Album thumbnail not found")
+
+
+# ============================================================================
 # Statistics & Metadata
 # ============================================================================
 
