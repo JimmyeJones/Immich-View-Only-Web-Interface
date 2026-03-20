@@ -23,8 +23,7 @@ const Albums = {
         albumDetailErrorMsg: null,
         backBtn: null,
         albumLoadMore: null,
-        albumLoadMoreBtn: null,
-        albumLoadingIndicator: null
+        albumLoadMoreBtn: null
     },
 
     // Currently open album (null = showing grid)
@@ -54,7 +53,6 @@ const Albums = {
         this.elements.backBtn = document.getElementById('album-back-btn');
         this.elements.albumLoadMore = document.getElementById('album-load-more-container');
         this.elements.albumLoadMoreBtn = document.getElementById('album-load-more-btn');
-        this.elements.albumLoadingIndicator = document.getElementById('album-loading-indicator');
 
         this.elements.retryBtn?.addEventListener('click', () => this.loadAlbums());
         this.elements.backBtn?.addEventListener('click', () => this.showGrid());
